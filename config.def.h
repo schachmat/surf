@@ -4,6 +4,7 @@ static char *useragent      = "Mozilla/5.0 (X11; U; Unix; en-US) "
 	"Safari/537.15 Surf/"VERSION;
 static char *stylefile      = "~/.surf/style.css";
 static char *scriptfile     = "~/.surf/script.js";
+static char *historyfile    = "~/.surf/history";
 static char *cookiefile     = "~/.surf/cookies.txt";
 static time_t sessiontime   = 3600;
 static char *cafile         = "/etc/ssl/certs/ca-certificates.crt";
