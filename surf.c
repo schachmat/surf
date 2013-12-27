@@ -1077,7 +1077,7 @@ setup(void) {
 
 	/* ssl */
 	g_object_set(G_OBJECT(s), "ssl-ca-file", cafile, NULL);
-	g_object_set(G_OBJECT(s), "ssl-strict", strictssl, NULL);
+	g_object_set(G_OBJECT(s), "ssl-strict", STRICTSSL, NULL);
 
 	/* proxy */
 	if((proxy = getenv("http_proxy")) && strcmp(proxy, "")) {

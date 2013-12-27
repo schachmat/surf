@@ -8,11 +8,12 @@ static char *historyfile    = "~/.surf/history";
 static char *cookiefile     = "~/.surf/cookies.txt";
 static time_t sessiontime   = 3600;
 static char *cafile         = "/etc/ssl/certs/ca-certificates.crt";
-static char *strictssl      = FALSE; /* Refuse untrusted SSL connections */
 static Bool kioskmode	    = FALSE; /* Ignore shortcuts */
 static Bool showindicators  = TRUE;  /* Show indicators in window title */
 static Bool zoomto96dpi     = TRUE;  /* Zoom pages to always emulate 96dpi */
 static Bool runinfullscreen = FALSE; /* Run in fullscreen mode by default */
+/* Refuse untrusted SSL connections */
+#define STRICTSSL TRUE
 
 static guint defaultfontsize = 12;   /* Default font size */
 static gfloat zoomlevel = 1.0;       /* Default zoom level */
