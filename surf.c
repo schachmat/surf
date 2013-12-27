@@ -593,6 +593,7 @@ loadstatuschange(WebKitWebView *view, GParamSpec *pspec, Client *c) {
 	WebKitNetworkRequest *request;
 	SoupMessage *msg;
 	char *uri;
+	FILE *f;
 
 	switch(webkit_web_view_get_load_status (c->view)) {
 	case WEBKIT_LOAD_COMMITTED:
@@ -606,6 +607,11 @@ loadstatuschange(WebKitWebView *view, GParamSpec *pspec, Client *c) {
 			               ^ SOUP_MESSAGE_CERTIFICATE_TRUSTED;
 		}
 		setatom(c, AtomUri, uri);
+		if((f = fopen(historyfile, "a+"))) {
+			fputs(uri, f);
+			fputs("\n", f);
+			fclose(f);
+		}
 		break;
 	case WEBKIT_LOAD_FINISHED:
 		c->progress = 100;
