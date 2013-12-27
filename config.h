@@ -28,16 +28,30 @@ static Bool loadimages = TRUE;
 static Bool hidebackground  = FALSE;
 static Bool allowgeolocation = TRUE;
 
-#define SETPROP(p, q) { \
+#define SETURI() { \
 	.v = (char *[]){ "/bin/sh", "-c", \
-		"prop=\"`xprop -id $2 $0" \
+		"prop=\"`xprop -id $0 _SURF_URI" \
 		" | cut -d '\"' -f 2" \
 		" | tac - \"${HOME}/.surf/history\"" \
 		" | awk '!x[$0]++'" \
 		" | xargs -0 printf %b" \
 		" | dmenu -l 10`\"" \
-		" && xprop -id $2 -f $1 8s -set $1 \"$prop\"", \
-		p, q, winid, NULL \
+		" && xprop -id $0 -f _SURF_GO 8s -set _SURF_GO \"$prop\"", \
+		winid, NULL \
+	} \
+}
+
+#define SETSEARCH() { \
+	.v = (char *[]){ "/bin/sh", "-c", \
+		"prop=\"`xprop -id $0 _SURF_FIND" \
+		" | cut -d '\"' -f 2" \
+		" | tac - \"${HOME}/.surf/searches\"" \
+		" | awk '!x[$0]++'" \
+		" | xargs -0 printf %b" \
+		" | dmenu -l 10`\"" \
+		" && xprop -id $0 -f _SURF_FIND 8s -set _SURF_FIND \"$prop\"" \
+		" && echo \"$prop\" >> \"${HOME}/.surf/searches\"", \
+		winid, NULL \
 	} \
 }
 
@@ -88,9 +102,9 @@ static Key keys[] = {
     { MODKEY,               GDK_o,      source,     { 0 } },
     { MODKEY|GDK_SHIFT_MASK,GDK_o,      inspector,  { 0 } },
 
-    { MODKEY,               GDK_g,      spawn,      SETPROP("_SURF_URI", "_SURF_GO") },
-    { MODKEY,               GDK_f,      spawn,      SETPROP("_SURF_FIND", "_SURF_FIND") },
-    { MODKEY,               GDK_slash,  spawn,      SETPROP("_SURF_FIND", "_SURF_FIND") },
+    { MODKEY,               GDK_g,      spawn,      SETURI() },
+    { MODKEY,               GDK_f,      spawn,      SETSEARCH() },
+    { MODKEY,               GDK_slash,  spawn,      SETSEARCH() },
 
     { MODKEY,               GDK_n,      find,       { .b = TRUE } },
     { MODKEY|GDK_SHIFT_MASK,GDK_n,      find,       { .b = FALSE } },
