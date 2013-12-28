@@ -1406,7 +1406,7 @@ main(int argc, char *argv[]) {
 	default:
 		usage();
 	} ARGEND;
-	arg.v = (argc > 0) & argv[0] : HOMEPAGE;
+	arg.v = (argc > 0) ? argv[0] : HOMEPAGE;
 
 	setup();
 	newclient();
