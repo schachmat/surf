@@ -29,7 +29,7 @@ static Bool loadimages = TRUE;
 static Bool hidebackground  = FALSE;
 static Bool allowgeolocation = TRUE;
 
-#define SETURI() { \
+#define SETURI { \
 	.v = (char *[]){ "/bin/sh", "-c", \
 		"prop=\"`xprop -id $0 _SURF_URI" \
 		" | cut -d '\"' -f 2" \
@@ -42,7 +42,7 @@ static Bool allowgeolocation = TRUE;
 	} \
 }
 
-#define SETSEARCH() { \
+#define SETSEARCH { \
 	.v = (char *[]){ "/bin/sh", "-c", \
 		"prop=\"`xprop -id $0 _SURF_FIND" \
 		" | cut -d '\"' -f 2" \
@@ -63,6 +63,14 @@ static Bool allowgeolocation = TRUE;
 		" && curl -L -J -O --user-agent '$1' --referer '$2' -b $3 -c $3 '$0';" \
 		" sleep 5;\"", \
 		d, useragent, r, cookiefile, NULL \
+	} \
+}
+
+#define WATCH { \
+	.v = (char *[]){ "/bin/sh", "-c", \
+		"st -e \
+		yt \"$(xprop -id $0 _SURF_URI | cut -d \\\" -f 2)\"", \
+		winid, NULL \
 	} \
 }
 
@@ -109,9 +117,10 @@ static Key keys[] = {
     { MODKEY,               GDK_o,      source,     { 0 } },
     { MODKEY|GDK_SHIFT_MASK,GDK_o,      inspector,  { 0 } },
 
-    { MODKEY,               GDK_g,      spawn,      SETURI() },
-    { MODKEY,               GDK_f,      spawn,      SETSEARCH() },
-    { MODKEY,               GDK_slash,  spawn,      SETSEARCH() },
+    { MODKEY,               GDK_g,      spawn,      SETURI },
+    { MODKEY,               GDK_f,      spawn,      SETSEARCH },
+    { MODKEY,               GDK_slash,  spawn,      SETSEARCH },
+    { MODKEY,               GDK_w,      spawn,      WATCH },
 
     { MODKEY,               GDK_n,      find,       { .b = TRUE } },
     { MODKEY|GDK_SHIFT_MASK,GDK_n,      find,       { .b = FALSE } },
