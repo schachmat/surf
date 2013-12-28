@@ -68,6 +68,12 @@ static Bool allowgeolocation = TRUE;
 
 #define MODKEY GDK_CONTROL_MASK
 
+// searchengines
+static SearchEngine searchengines[] = {
+	{ "s",        "https://startpage.com/do/search?q=%s"   },
+	{ "l",        "https://dict.leo.org/#/search=%s" },
+};
+
 /* hotkeys */
 /*
  * If you use anything else but MODKEY and GDK_SHIFT_MASK, don't forget to
