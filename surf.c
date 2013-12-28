@@ -1400,13 +1400,11 @@ main(int argc, char *argv[]) {
 	default:
 		usage();
 	} ARGEND;
-	if(argc > 0)
-		arg.v = argv[0];
+	arg.v = (argc > 0) ? argv[0] : HOMEPAGE;
 
 	setup();
 	newclient();
-	if(arg.v)
-		loaduri(clients, &arg);
+	loaduri(clients, &arg);
 
 	gtk_main();
 	cleanup();
