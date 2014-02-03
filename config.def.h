@@ -19,6 +19,13 @@ static Bool runinfullscreen = FALSE; /* Run in fullscreen mode by default */
 static guint defaultfontsize = 12;   /* Default font size */
 static gfloat zoomlevel = 1.0;       /* Default zoom level */
 
+/* Soup default features */
+static char *cookiefile     = "~/.surf/cookies.txt";
+static char *cookiepolicies = "Aa@"; /* A: accept all; a: accept nothing,
+					@: accept no third party */
+static char *cafile         = "/etc/ssl/certs/ca-certificates.crt";
+static time_t sessiontime   = 3600;
+
 /* Webkit default features */
 static Bool enablescrollbars = TRUE;
 static Bool enablespatialbrowsing = TRUE;
@@ -103,6 +110,7 @@ static Key keys[] = {
 	{ MODKEY|GDK_SHIFT_MASK,GDK_i,      toggle,     { .v = "auto-load-images" } },
 	{ MODKEY|GDK_SHIFT_MASK,GDK_s,      toggle,     { .v = "enable-scripts" } },
 	{ MODKEY|GDK_SHIFT_MASK,GDK_v,      toggle,     { .v = "enable-plugins" } },
+	{ MODKEY|GDK_SHIFT_MASK,GDK_a,      togglecookiepolicy, { 0 } },
 	{ MODKEY|GDK_SHIFT_MASK,GDK_m,      togglestyle,{ 0 } },
 	{ MODKEY|GDK_SHIFT_MASK,GDK_b,      togglescrollbars,{ 0 } },
 	{ MODKEY|GDK_SHIFT_MASK,GDK_g,      togglegeolocation, { 0 } },
