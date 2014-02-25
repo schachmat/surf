@@ -29,7 +29,7 @@
 char *argv0;
 
 #define LENGTH(x)               (sizeof x / sizeof x[0])
-#define CLEANMASK(mask)		(mask & (MODKEY|GDK_SHIFT_MASK))
+#define CLEANMASK(mask)         (mask & (MODKEY|GDK_SHIFT_MASK))
 #define COOKIEJAR_TYPE          (cookiejar_get_type ())
 #define COOKIEJAR(obj)          (G_TYPE_CHECK_INSTANCE_CAST ((obj), COOKIEJAR_TYPE, CookieJar))
 
@@ -154,8 +154,9 @@ static Client *newclient(void);
 static void newwindow(Client *c, const Arg *arg, gboolean noembed);
 static gchar *parseuri(const gchar *uri);
 static void pasteuri(GtkClipboard *clipboard, const char *text, gpointer d);
-static void populatepopup(WebKitWebView *web, GtkMenu *menu, Client *c);
-static void popupactivate(GtkMenuItem *menu, Client *);
+static gboolean contextmenu(WebKitWebView *view, GtkWidget *menu,
+		WebKitHitTestResult *target, gboolean keyboard, Client *c);
+static void menuactivate(GtkMenuItem *item, Client *c);
 static void print(Client *c, const Arg *arg);
 static GdkFilterReturn processx(GdkXEvent *xevent, GdkEvent *event,
 		gpointer d);
@@ -170,8 +171,7 @@ static void sigchld(int unused);
 static void source(Client *c, const Arg *arg);
 static void spawn(Client *c, const Arg *arg);
 static void stop(Client *c, const Arg *arg);
-static void titlechange(WebKitWebView *v, WebKitWebFrame *frame,
-		const char *title, Client *c);
+static void titlechange(WebKitWebView *view, GParamSpec *pspec, Client *c);
 static void toggle(Client *c, const Arg *arg);
 static void togglecookiepolicy(Client *c, const Arg *arg);
 static void togglegeolocation(Client *c, const Arg *arg);
@@ -669,7 +669,7 @@ loadstatuschange(WebKitWebView *view, GParamSpec *pspec, Client *c) {
 
 static void
 loaduri(Client *c, const Arg *arg) {
-	char *u, *rp;
+	char *u = NULL, *rp;
 	const char *uri = (char *)arg->v;
 	Arg a = { .b = FALSE };
 	struct stat st;
@@ -702,9 +702,9 @@ loaduri(Client *c, const Arg *arg) {
 		}
 		c->progress = 0;
 		c->title = copystr(&c->title, u);
-		g_free(u);
 		updatetitle(c);
 	}
+	g_free(u);
 }
 
 static void
@@ -725,6 +725,9 @@ newclient(void) {
 
 	if(!(c = calloc(1, sizeof(Client))))
 		die("Cannot malloc!\n");
+
+	c->title = NULL;
+	c->progress = 100;
 
 	/* Window */
 	if(embed) {
@@ -765,7 +768,7 @@ newclient(void) {
 	c->view = WEBKIT_WEB_VIEW(webkit_web_view_new());
 
 	g_signal_connect(G_OBJECT(c->view),
-			"title-changed",
+			"notify::title",
 			G_CALLBACK(titlechange), c);
 	g_signal_connect(G_OBJECT(c->view),
 			"hovering-over-link",
@@ -798,8 +801,8 @@ newclient(void) {
 			"button-release-event",
 			G_CALLBACK(buttonrelease), c);
 	g_signal_connect(G_OBJECT(c->view),
-			"populate-popup",
-			G_CALLBACK(populatepopup), c);
+			"context-menu",
+			G_CALLBACK(contextmenu), c);
 	g_signal_connect(G_OBJECT(c->view),
 			"resource-request-starting",
 			G_CALLBACK(beforerequest), c);
@@ -864,6 +867,8 @@ newclient(void) {
 			kioskmode ^ 1, NULL);
 	g_object_set(G_OBJECT(settings), "default-font-size",
 			defaultfontsize, NULL);
+	g_object_set(G_OBJECT(settings), "resizable-text-areas",
+			1, NULL);
 
 	/*
 	 * While stupid, CSS specifies that a pixel represents 1/96 of an inch.
@@ -909,7 +914,6 @@ newclient(void) {
 	if(hidebackground)
 		webkit_web_view_set_transparent(c->view, TRUE);
 
-	c->title = NULL;
 	c->next = clients;
 	clients = c;
 
@@ -929,11 +933,13 @@ newclient(void) {
 static void
 newwindow(Client *c, const Arg *arg, gboolean noembed) {
 	guint i = 0;
-	const char *cmd[14], *uri;
+	const char *cmd[16], *uri;
 	const Arg a = { .v = (void *)cmd };
 	char tmp[64];
 
 	cmd[i++] = argv0;
+	cmd[i++] = "-a";
+	cmd[i++] = cookiepolicies;
 	if(!enablescrollbars)
 		cmd[i++] = "-b";
 	if(embed && !noembed) {
@@ -961,19 +967,21 @@ newwindow(Client *c, const Arg *arg, gboolean noembed) {
 	spawn(NULL, &a);
 }
 
-static void
-populatepopup(WebKitWebView *web, GtkMenu *menu, Client *c) {
-	GList *items = gtk_container_get_children(GTK_CONTAINER(menu));
+static gboolean
+contextmenu(WebKitWebView *view, GtkWidget *menu, WebKitHitTestResult *target,
+		gboolean keyboard, Client *c) {
+	GList *items = gtk_container_get_children(GTK_CONTAINER(GTK_MENU(menu)));
 
 	for(GList *l = items; l; l = l->next) {
-		g_signal_connect(l->data, "activate", G_CALLBACK(popupactivate), c);
+		g_signal_connect(l->data, "activate", G_CALLBACK(menuactivate), c);
 	}
 
 	g_list_free(items);
+	return FALSE;
 }
 
 static void
-popupactivate(GtkMenuItem *menu, Client *c) {
+menuactivate(GtkMenuItem *item, Client *c) {
 	/*
 	 * context-menu-action-2000	open link
 	 * context-menu-action-1	open link in window
@@ -989,7 +997,7 @@ popupactivate(GtkMenuItem *menu, Client *c) {
 	const char *name;
 	GtkClipboard *prisel;
 
-	a = gtk_activatable_get_related_action(GTK_ACTIVATABLE(menu));
+	a = gtk_activatable_get_related_action(GTK_ACTIVATABLE(item));
 	if(a == NULL)
 		return;
 
@@ -1211,9 +1219,12 @@ stop(Client *c, const Arg *arg) {
 }
 
 static void
-titlechange(WebKitWebView *v, WebKitWebFrame *f, const char *t, Client *c) {
-	c->title = copystr(&c->title, t);
-	updatetitle(c);
+titlechange(WebKitWebView *view, GParamSpec *pspec, Client *c) {
+	const gchar *t = webkit_web_view_get_title(view);
+	if (t) {
+		c->title = copystr(&c->title, t);
+		updatetitle(c);
+	}
 }
 
 static void
@@ -1370,16 +1381,18 @@ updatetitle(Client *c) {
 					pagestat, c->linkhover);
 		} else if(c->progress != 100) {
 			t = g_strdup_printf("[%i%%] %s:%s | %s", c->progress,
-					togglestat, pagestat, c->title);
+					togglestat, pagestat,
+					(c->title == NULL)? "" : c->title);
 		} else {
 			t = g_strdup_printf("%s:%s | %s", togglestat, pagestat,
-					c->title);
+					(c->title == NULL)? "" : c->title);
 		}
 
 		gtk_window_set_title(GTK_WINDOW(c->win), t);
 		g_free(t);
 	} else {
-		gtk_window_set_title(GTK_WINDOW(c->win), c->title);
+		gtk_window_set_title(GTK_WINDOW(c->win),
+				(c->title == NULL)? "" : c->title);
 	}
 }
 
@@ -1423,6 +1436,7 @@ zoom(Client *c, const Arg *arg) {
 int
 main(int argc, char *argv[]) {
 	Arg arg;
+	Client *c;
 
 	memset(&arg, 0, sizeof(arg));
 
@@ -1495,7 +1509,7 @@ main(int argc, char *argv[]) {
 		useragent = EARGF(usage());
 		break;
 	case 'v':
-		die("surf-"VERSION", ©2009-2012 surf engineers, "
+		die("surf-"VERSION", ©2009-2014 surf engineers, "
 				"see LICENSE for details\n");
 	case 'x':
 		showxid = TRUE;
@@ -1509,8 +1523,12 @@ main(int argc, char *argv[]) {
 	arg.v = (argc > 0) ? argv[0] : HOMEPAGE;
 
 	setup();
-	newclient();
-	loaduri(clients, &arg);
+	c = newclient();
+	if(arg.v) {
+		loaduri(clients, &arg);
+	} else {
+		updatetitle(c);
+	}
 
 	gtk_main();
 	cleanup();
