@@ -39,7 +39,6 @@ static Bool allowgeolocation = TRUE;
 		" | cut -d '\"' -f 2" \
 		" | tac - \"${HOME}/.surf/history\"" \
 		" | awk '!x[$0]++'" \
-		" | xargs -0 printf %b" \
 		" | dmenu -l 10`\"" \
 		" && xprop -id $0 -f _SURF_GO 8s -set _SURF_GO \"$prop\"", \
 		winid, NULL \
