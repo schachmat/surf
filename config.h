@@ -83,6 +83,7 @@ static Bool allowgeolocation = TRUE;
 static SearchEngine searchengines[] = {
 	{ "s",        "https://startpage.com/do/search?q=%s"   },
 	{ "l",        "https://dict.leo.org/#/search=%s" },
+	{ "w",        "https://en.wikipedia.org/wiki/%s" },
 };
 
 /* hotkeys */
