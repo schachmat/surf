@@ -39,7 +39,7 @@ static Bool allowgeolocation = TRUE;
 		" | cut -d '\"' -f 2" \
 		" | tac - \"${HOME}/.surf/history\"" \
 		" | awk '!x[$0]++'" \
-		" | dmenu -l 10`\"" \
+		" | dmenu -i -l 10`\"" \
 		" && xprop -id $0 -f _SURF_GO 8s -set _SURF_GO \"$prop\"", \
 		winid, NULL \
 	} \
@@ -52,7 +52,7 @@ static Bool allowgeolocation = TRUE;
 		" | tac - \"${HOME}/.surf/searches\"" \
 		" | awk '!x[$0]++'" \
 		" | xargs -0 printf %b" \
-		" | dmenu -l 10`\"" \
+		" | dmenu -i -l 10`\"" \
 		" && xprop -id $0 -f _SURF_FIND 8s -set _SURF_FIND \"$prop\"" \
 		" && echo \"$prop\" >> \"${HOME}/.surf/searches\"", \
 		winid, NULL \
@@ -109,12 +109,12 @@ static Key keys[] = {
 	{ MODKEY,               GDK_l,      navigate,   { .i = +1 } },
 	{ MODKEY,               GDK_h,      navigate,   { .i = -1 } },
 	
-	{ MODKEY,               GDK_j,           scroll_v,   { .i = +1 } },
-	{ MODKEY,               GDK_k,           scroll_v,   { .i = -1 } },
-	{ MODKEY,               GDK_b,           scroll_v,   { .i = -10000 } },
-	{ MODKEY,               GDK_space,       scroll_v,   { .i = +10000 } },
-	{ MODKEY,               GDK_i,           scroll_h,   { .i = +1 } },
-	{ MODKEY,               GDK_u,           scroll_h,   { .i = -1 } },
+	{ MODKEY,               GDK_j,      scroll_v,   { .i = +1 } },
+	{ MODKEY,               GDK_k,      scroll_v,   { .i = -1 } },
+	{ MODKEY,               GDK_b,      scroll_v,   { .i = -10000 } },
+	{ MODKEY,               GDK_space,  scroll_v,   { .i = +10000 } },
+	{ MODKEY,               GDK_i,      scroll_h,   { .i = +1 } },
+	{ MODKEY,               GDK_u,      scroll_h,   { .i = -1 } },
 	
 	{ 0,                    GDK_F11,    fullscreen, { 0 } },
 	{ 0,                    GDK_Escape, stop,       { 0 } },
