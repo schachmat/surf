@@ -8,7 +8,6 @@ surf \- simple webkit-based browser
 .RB [-c\ cookiefile]
 .RB [-e\ xid]
 .RB [-r\ scriptfile]
-.RB [-t\ stylefile]
 .RB [-u\ useragent]
 .RB [-z\ zoomlevel]
 .RB "URI"
@@ -89,10 +88,6 @@ Disable Javascript
 .TP
 .B \-S
 Enable Javascript
-.TP
-.B \-t stylefile
-Specify the user
-.I stylefile.
 .TP
 .B \-u useragent 
 Specify the
@@ -194,9 +189,7 @@ Toggle caret browsing. This will reload the page.
 Toggle auto-loading of images. This will reload the page.
 .TP
 .B Ctrl\-Shift\-m
-Toggle if the
-.I stylefile 
-file should be loaded. This will reload the page.
+Toggle if custom styles should be loaded. This will reload the page.
 .TP
 .B Ctrl\-Shift\-o
 Open the Web Inspector (Developer Tools) window for the current page.
