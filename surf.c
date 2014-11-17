@@ -23,6 +23,7 @@
 #include <sys/file.h>
 #include <libgen.h>
 #include <stdarg.h>
+#include <regex.h>
 
 #include "arg.h"
 
@@ -75,6 +76,12 @@ typedef struct {
 	char *token;
 	char *uri;
 } SearchEngine;
+
+typedef struct {
+	char *regex;
+	char *style;
+	regex_t re;
+} SiteSpecificStyle;
 
 static Display *dpy;
 static Atom atoms[AtomLast];
@@ -132,6 +139,8 @@ static const char *getatom(Client *c, int a);
 static void gettogglestat(Client *c);
 static void getpagestat(Client *c);
 static char *geturi(Client *c);
+static gchar *getstyle(const char *uri);
+
 static gboolean initdownload(WebKitWebView *v, WebKitDownload *o, Client *c);
 
 static void inspector(Client *c, const Arg *arg);
@@ -271,7 +280,6 @@ cleanup(void) {
 	g_free(cookiefile);
 	g_free(historyfile);
 	g_free(scriptfile);
-	g_free(stylefile);
 }
 
 static void
@@ -540,6 +548,15 @@ geturi(Client *c) {
 	return uri;
 }
 
+static gchar *
+getstyle(const char *uri) {
+	int i;
+	for(i = 0; i < LENGTH(styles); i++)
+		if(styles[i].regex && !regexec(&(styles[i].re), uri, 0, NULL, 0))
+			return g_strconcat("file://", styles[i].style, NULL);
+	return g_strdup("");
+}
+
 static gboolean
 initdownload(WebKitWebView *view, WebKitDownload *o, Client *c) {
 	Arg arg;
@@ -636,8 +653,10 @@ loadstatuschange(WebKitWebView *view, GParamSpec *pspec, Client *c) {
 	WebKitWebFrame *frame;
 	WebKitWebDataSource *src;
 	WebKitNetworkRequest *request;
+	WebKitWebSettings *set = webkit_web_view_get_settings(c->view);
 	SoupMessage *msg;
 	char *uri;
+	char *path;
 	FILE *f;
 
 	switch(webkit_web_view_get_load_status (c->view)) {
@@ -657,6 +676,9 @@ loadstatuschange(WebKitWebView *view, GParamSpec *pspec, Client *c) {
 			fputs("\n", f);
 			fclose(f);
 		}
+		g_object_get(G_OBJECT(set), "user-stylesheet-uri", &path, NULL);
+		if (path && path[0])
+			g_object_set(G_OBJECT(set), "user-stylesheet-uri", getstyle(uri), NULL);
 		break;
 	case WEBKIT_LOAD_FINISHED:
 		c->progress = 100;
@@ -715,7 +737,7 @@ newclient(void) {
 	GdkGeometry hints = { 1, 1 };
 	GdkScreen *screen;
 	gdouble dpi;
-	char *uri, *ua;
+	char *ua;
 
 	if(!(c = calloc(1, sizeof(Client))))
 		die("Cannot malloc!\n");
@@ -845,8 +867,6 @@ newclient(void) {
 	if(!(ua = getenv("SURF_USERAGENT")))
 		ua = useragent;
 	g_object_set(G_OBJECT(settings), "user-agent", ua, NULL);
-	uri = g_strconcat("file://", stylefile, NULL);
-	g_object_set(G_OBJECT(settings), "user-stylesheet-uri", uri, NULL);
 	g_object_set(G_OBJECT(settings), "auto-load-images", loadimages,
 			NULL);
 	g_object_set(G_OBJECT(settings), "enable-plugins", enableplugins,
@@ -900,8 +920,6 @@ newclient(void) {
 		c->fullscreen = 0;
 		fullscreen(c, NULL);
 	}
-
-	g_free(uri);
 
 	setatom(c, AtomFind, "");
 	setatom(c, AtomUri, "about:blank");
@@ -1124,6 +1142,7 @@ setatom(Client *c, int a, const char *v) {
 
 static void
 setup(void) {
+	int i;
 	char *proxy;
 	char *new_proxy;
 	SoupURI *puri;
@@ -1145,7 +1164,15 @@ setup(void) {
 	cookiefile = buildpath(cookiefile);
 	historyfile = buildpath(historyfile);
 	scriptfile = buildpath(scriptfile);
-	stylefile = buildpath(stylefile);
+
+	/* site specific stylesheet regexes */
+	for(i = 0; i < LENGTH(styles); i++) {
+		if(regcomp(&(styles[i].re), styles[i].regex, REG_EXTENDED)) {
+			fprintf(stderr, "Could not compile regex: %s\n", styles[i].regex);
+			styles[i].regex = NULL;
+		}
+		styles[i].style = buildpath(styles[i].style);
+	}
 
 	/* request handler */
 	s = webkit_get_default_session();
@@ -1313,13 +1340,12 @@ togglescrollbars(Client *c, const Arg *arg) {
 
 static void
 togglestyle(Client *c, const Arg *arg) {
-	WebKitWebSettings *settings;
-	char *uri;
+	WebKitWebSettings *settings = webkit_web_view_get_settings(c->view);
+	char *path;
 
-	settings = webkit_web_view_get_settings(c->view);
-	g_object_get(G_OBJECT(settings), "user-stylesheet-uri", &uri, NULL);
-	uri = uri[0] ? g_strdup("") : g_strconcat("file://", stylefile, NULL);
-	g_object_set(G_OBJECT(settings), "user-stylesheet-uri", uri, NULL);
+	g_object_get(G_OBJECT(settings), "user-stylesheet-uri", &path, NULL);
+	path = (path && path[0]) ? g_strdup("") : getstyle(geturi(c));
+	g_object_set(G_OBJECT(settings), "user-stylesheet-uri", path, NULL);
 
 	updatetitle(c);
 }
@@ -1349,7 +1375,7 @@ gettogglestat(Client *c){
 	togglestat[p++] = value? 'V': 'v';
 
 	g_object_get(G_OBJECT(settings), "user-stylesheet-uri", &uri, NULL);
-	togglestat[p++] = uri[0] ? 'M': 'm';
+	togglestat[p++] = (uri && uri[0]) ? 'M': 'm';
 
 	togglestat[p] = '\0';
 }
@@ -1408,7 +1434,7 @@ usage(void) {
 	die("usage: %s [-bBfFgGiIkKnNpPsSvx]"
 		" [-a cookiepolicies ] "
 		" [-c cookiefile] [-e xid] [-r scriptfile]"
-		" [-t stylefile] [-u useragent] [-z zoomlevel]"
+		" [-u useragent] [-z zoomlevel]"
 		" [uri]\n", basename(argv0));
 }
 
@@ -1502,9 +1528,6 @@ main(int argc, char *argv[]) {
 		break;
 	case 'S':
 		enablescripts = 1;
-		break;
-	case 't':
-		stylefile = EARGF(usage());
 		break;
 	case 'u':
 		useragent = EARGF(usage());
