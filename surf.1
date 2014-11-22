@@ -8,7 +8,6 @@ surf \- simple webkit-based browser
 .RB [-c\ cookiefile]
 .RB [-e\ xid]
 .RB [-r\ scriptfile]
-.RB [-t\ stylefile]
 .RB [-u\ useragent]
 .RB [-z\ zoomlevel]
 .RB "URI"
@@ -90,10 +89,6 @@ Disable Javascript
 .B \-S
 Enable Javascript
 .TP
-.B \-t stylefile
-Specify the user
-.I stylefile.
-.TP
 .B \-u useragent 
 Specify the
 .I useragent
@@ -103,7 +98,9 @@ which surf should use.
 Prints version information to standard output, then exits.
 .TP
 .B \-x
-Prints xid to standard output. This can be used to script the browser by using
+Prints xid to standard output. This can be used to script the browser in for
+example
+.BR xdotool(1).
 .TP
 .B \-z zoomlevel 
 Specify the
@@ -157,7 +154,7 @@ Go to next search result.
 Go to previous search result.
 .TP
 .B Ctrl\-g
-Opens the URL-bar.
+Opens the URL-bar (requires dmenu installed).
 .TP
 .B Ctrl\-p
 Loads URI from primary selection.
@@ -192,9 +189,7 @@ Toggle caret browsing. This will reload the page.
 Toggle auto-loading of images. This will reload the page.
 .TP
 .B Ctrl\-Shift\-m
-Toggle if the
-.I stylefile 
-file should be loaded. This will reload the page.
+Toggle if custom styles should be loaded. This will reload the page.
 .TP
 .B Ctrl\-Shift\-o
 Open the Web Inspector (Developer Tools) window for the current page.
@@ -231,6 +226,7 @@ will help you.
 .BR dmenu(1),
 .BR xprop(1),
 .BR tabbed(1),
-.BR nspluginwrapper(1)
+.BR nspluginwrapper(1),
+.BR xdotool(1)
 .SH BUGS
 Please report them!
