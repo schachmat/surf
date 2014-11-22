@@ -2,10 +2,9 @@
 static char *useragent      = "Mozilla/5.0 (X11; U; Unix; en-US) "
 	"AppleWebKit/537.15 (KHTML, like Gecko) Chrome/24.0.1295.0 "
 	"Safari/537.15 Surf/"VERSION;
-static char *stylefile      = "~/.surf/style.css";
 static char *scriptfile     = "~/.surf/script.js";
 static char *historyfile    = "~/.surf/history";
-static Bool kioskmode	    = FALSE; /* Ignore shortcuts */
+static Bool kioskmode       = FALSE; /* Ignore shortcuts */
 static Bool showindicators  = TRUE;  /* Show indicators in window title */
 static Bool zoomto96dpi     = TRUE;  /* Zoom pages to always emulate 96dpi */
 static Bool runinfullscreen = FALSE; /* Run in fullscreen mode by default */
@@ -19,7 +18,7 @@ static gfloat zoomlevel = 1.0;       /* Default zoom level */
 /* Soup default features */
 static char *cookiefile     = "~/.surf/cookies.txt";
 static char *cookiepolicies = "Aa@"; /* A: accept all; a: accept nothing,
-					@: accept no third party */
+                                        @: accept no third party */
 static char *cafile         = "/etc/ssl/certs/ca-certificates.crt";
 static time_t sessiontime   = 3600;
 
@@ -69,14 +68,6 @@ static Bool allowgeolocation = TRUE;
 	} \
 }
 
-#define WATCH { \
-	.v = (char *[]){ "/bin/sh", "-c", \
-		"st -e \
-		yt \"$(xprop -id $0 _SURF_URI | cut -d \\\" -f 2)\"", \
-		winid, NULL \
-	} \
-}
-
 #define MODKEY GDK_CONTROL_MASK
 
 // searchengines
@@ -84,6 +75,13 @@ static SearchEngine searchengines[] = {
 	{ "s",        "https://startpage.com/do/search?q=%s"   },
 	{ "l",        "https://dict.leo.org/#/search=%s" },
 	{ "w",        "https://en.wikipedia.org/wiki/%s" },
+};
+
+#define STYLEDIR "~/.surf/styles/"
+static SiteSpecificStyle styles[] = {
+	{ "^https?://[a-z]+\\.wikipedia\\.org", STYLEDIR "wiki.css" },
+	{ "^https?://startpage\\.com",          STYLEDIR "startpage.css" },
+	{ ".*",                                 STYLEDIR "default.css" },
 };
 
 /* hotkeys */
@@ -124,7 +122,6 @@ static Key keys[] = {
 	{ MODKEY,               GDK_g,      spawn,      SETURI },
 	{ MODKEY,               GDK_f,      spawn,      SETSEARCH },
 	{ MODKEY,               GDK_slash,  spawn,      SETSEARCH },
-	{ MODKEY,               GDK_w,      spawn,      WATCH },
 	
 	{ MODKEY,               GDK_n,      find,       { .b = TRUE } },
 	{ MODKEY|GDK_SHIFT_MASK,GDK_n,      find,       { .b = FALSE } },
