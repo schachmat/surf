@@ -79,8 +79,10 @@ static SearchEngine searchengines[] = {
 
 #define STYLEDIR "~/.surf/styles/"
 static SiteSpecificStyle styles[] = {
-	{ "^https?://[a-z]+\\.wikipedia\\.org", STYLEDIR "wiki.css" },
 	{ "^https?://startpage\\.com",          STYLEDIR "startpage.css" },
+	{ "^https?://[a-z]+\\.wikipedia\\.org", STYLEDIR "wiki.css" },
+	{ "^https?://github\\.com",    STYLEDIR "github.css" },
+	{ "^https?://[a-z]+\\.youtube\\.com",   STYLEDIR "youtube.css" },
 	{ ".*",                                 STYLEDIR "default.css" },
 };
 
