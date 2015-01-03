@@ -658,6 +658,7 @@ loadstatuschange(WebKitWebView *view, GParamSpec *pspec, Client *c) {
 	char *uri;
 	char *path;
 	FILE *f;
+	static int first = 1;
 
 	switch(webkit_web_view_get_load_status (c->view)) {
 	case WEBKIT_LOAD_COMMITTED:
@@ -677,8 +678,10 @@ loadstatuschange(WebKitWebView *view, GParamSpec *pspec, Client *c) {
 			fclose(f);
 		}
 		g_object_get(G_OBJECT(set), "user-stylesheet-uri", &path, NULL);
-		if (path && path[0])
+		if ((path && path[0]) || first) {
 			g_object_set(G_OBJECT(set), "user-stylesheet-uri", getstyle(uri), NULL);
+			first = 0;
+		}
 		break;
 	case WEBKIT_LOAD_FINISHED:
 		c->progress = 100;
