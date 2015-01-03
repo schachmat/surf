@@ -266,7 +266,7 @@ buttonrelease(WebKitWebView *web, GdkEventButton *e, GList *gl) {
 		if(e->button == 2 ||
 				(e->button == 1 && CLEANMASK(e->state) == CLEANMASK(MODKEY))) {
 			g_object_get(result, "link-uri", &arg.v, NULL);
-			newwindow(NULL, &arg, e->state & GDK_CONTROL_MASK);
+			newwindow(NULL, &arg, 0);
 			return true;
 		}
 	}
