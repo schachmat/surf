@@ -266,7 +266,7 @@ buttonrelease(WebKitWebView *web, GdkEventButton *e, GList *gl) {
 		if(e->button == 2 ||
 				(e->button == 1 && CLEANMASK(e->state) == CLEANMASK(MODKEY))) {
 			g_object_get(result, "link-uri", &arg.v, NULL);
-			newwindow(NULL, &arg, e->state & GDK_CONTROL_MASK);
+			newwindow(NULL, &arg, 0);
 			return true;
 		}
 	}
@@ -656,6 +656,7 @@ loadstatuschange(WebKitWebView *view, GParamSpec *pspec, Client *c) {
 	WebKitWebSettings *set = webkit_web_view_get_settings(c->view);
 	SoupMessage *msg;
 	char *uri;
+	char *path;
 	FILE *f;
 
 	switch(webkit_web_view_get_load_status (c->view)) {
@@ -675,7 +676,9 @@ loadstatuschange(WebKitWebView *view, GParamSpec *pspec, Client *c) {
 			fputs("\n", f);
 			fclose(f);
 		}
-		g_object_set(G_OBJECT(set), "user-stylesheet-uri", getstyle(uri), NULL);
+		g_object_get(G_OBJECT(set), "user-stylesheet-uri", &path, NULL);
+		if (path && path[0])
+			g_object_set(G_OBJECT(set), "user-stylesheet-uri", getstyle(uri), NULL);
 		break;
 	case WEBKIT_LOAD_FINISHED:
 		c->progress = 100;
