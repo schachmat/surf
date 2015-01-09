@@ -79,11 +79,11 @@ static SearchEngine searchengines[] = {
 
 #define STYLEDIR "~/.surf/styles/"
 static SiteSpecificStyle styles[] = {
-	{ "^https?://([a-z0-9]+\\.)*startpage\\.com", STYLEDIR "startpage.css" },
-	{ "^https?://([a-z0-9]+\\.)*wikipedia\\.org", STYLEDIR "wiki.css" },
-	{ "^https?://github\\.com",                   STYLEDIR "github.css" },
-	{ "^https?://([a-z0-9]+\\.)*youtube\\.com",   STYLEDIR "youtube.css" },
-	{ ".*",                                       STYLEDIR "default.css" },
+	{ "^https?://([a-z0-9-]+\\.)*startpage\\.com", STYLEDIR "startpage.css" },
+	{ "^https?://([a-z0-9-]+\\.)*wikipedia\\.org", STYLEDIR "wiki.css" },
+	{ "^https?://github\\.com",                    STYLEDIR "github.css" },
+	{ "^https?://([a-z0-9-]+\\.)*youtube\\.com",   STYLEDIR "youtube.css" },
+	{ ".*",                                        STYLEDIR "default.css" },
 };
 
 /* hotkeys */
