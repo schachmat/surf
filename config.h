@@ -1,7 +1,6 @@
 /* modifier 0 means no modifier */
-static char *useragent      = "Mozilla/5.0 (X11; U; Unix; en-US) "
-	"AppleWebKit/537.15 (KHTML, like Gecko) Chrome/24.0.1295.0 "
-	"Safari/537.15 Surf/"VERSION;
+static char *useragent      = "Mozilla/5.0 (Windows NT 6.1; rv:31.0) "
+	"Gecko/20100101 Firefox/31.0";
 static char *scriptfile     = "~/.surf/script.js";
 static char *historyfile    = "~/.surf/history";
 static Bool kioskmode       = FALSE; /* Ignore shortcuts */
