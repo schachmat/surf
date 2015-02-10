@@ -4,6 +4,9 @@ static char *useragent      = "Mozilla/5.0 (X11; U; Unix; en-US) "
 	"Safari/537.15 Surf/"VERSION;
 static char *scriptfile     = "~/.surf/script.js";
 static char *historyfile    = "~/.surf/history";
+static char *styledir       = "~/.surf/styles/";
+static char *cachefolder    = "~/.surf/cache/";
+
 static Bool kioskmode       = FALSE; /* Ignore shortcuts */
 static Bool showindicators  = TRUE;  /* Show indicators in window title */
 static Bool zoomto96dpi     = TRUE;  /* Zoom pages to always emulate 96dpi */
@@ -23,14 +26,17 @@ static char *cafile         = "/etc/ssl/certs/ca-certificates.crt";
 static time_t sessiontime   = 3600;
 
 /* Webkit default features */
-static Bool enablescrollbars = TRUE;
+static Bool enablescrollbars      = TRUE;
 static Bool enablespatialbrowsing = TRUE;
-static Bool enableplugins = TRUE;
-static Bool enablescripts = TRUE;
-static Bool enableinspector = TRUE;
-static Bool loadimages = TRUE;
-static Bool hidebackground  = FALSE;
-static Bool allowgeolocation = TRUE;
+static Bool enablediskcache       = TRUE;
+static int diskcachebytes         = 5 * 1024 * 1024;
+static Bool enableplugins         = TRUE;
+static Bool enablescripts         = TRUE;
+static Bool enableinspector       = TRUE;
+static Bool enablestyles          = TRUE;
+static Bool loadimages            = TRUE;
+static Bool hidebackground        = FALSE;
+static Bool allowgeolocation      = TRUE;
 
 #define SETPROP(p, q) { \
 	.v = (char *[]){ "/bin/sh", "-c", \
@@ -49,6 +55,26 @@ static Bool allowgeolocation = TRUE;
 		d, useragent, r, cookiefile, NULL \
 	} \
 }
+
+/* PLUMB(URI) */
+/* This called when some URI which does not begin with "about:",
+ * "http://" or "https://" should be opened.
+ */
+#define PLUMB(u) {\
+	.v = (char *[]){ "/bin/sh", "-c", \
+		"xdg-open \"$0\"", u, NULL \
+	} \
+}
+
+/* styles */
+/*
+ * The iteration will stop at the first match, beginning at the beginning of
+ * the list.
+ */
+static SiteStyle styles[] = {
+	/* regexp		file in $styledir */
+	{ ".*",			"default.css" },
+};
 
 #define MODKEY GDK_CONTROL_MASK
 
@@ -119,3 +145,13 @@ static Key keys[] = {
     { MODKEY|GDK_SHIFT_MASK,GDK_g,      togglegeolocation, { 0 } },
 };
 
+/* button definitions */
+/* click can be ClkDoc, ClkLink, ClkImg, ClkMedia, ClkSel, ClkEdit, ClkAny */
+static Button buttons[] = {
+    /* click                event mask  button  function        argument */
+    { ClkLink,              0,          2,      linkopenembed,  { 0 } },
+    { ClkLink,              MODKEY,     2,      linkopen,       { 0 } },
+    { ClkLink,              MODKEY,     1,      linkopen,       { 0 } },
+    { ClkAny,               0,          8,      navigate,       { .i = -1 } },
+    { ClkAny,               0,          9,      navigate,       { .i = +1 } },
+};

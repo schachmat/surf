@@ -3,7 +3,7 @@
 surf \- simple webkit-based browser
 .SH SYNOPSIS
 .B surf
-.RB [-bBfFgGiIkKnNpPsSvx]
+.RB [-bBdDfFgGiIkKmMnNpPsSvx]
 .RB [-a\ cookiepolicies]
 .RB [-c\ cookiefile]
 .RB [-e\ xid]
@@ -39,6 +39,12 @@ Specify the
 .I cookiefile
 to use.
 .TP
+.B \-d
+Disable the disk cache.
+.TP
+.B \-D
+Enable the disk cache.
+.TP
 .B \-e xid
 Reparents to window specified by
 .I xid.
@@ -67,6 +73,12 @@ Disable kiosk mode (disable key strokes and right click)
 .B \-K
 Enable kiosk mode (disable key strokes and right click)
 .TP
+.B \-m
+Disable the site-specific styles.
+.TP
+.B \-M
+Enable the site-specific styles.
+.TP
 .B \-n
 Disable the Web Inspector (Developer Tools).
 .TP
@@ -88,6 +100,11 @@ Disable Javascript
 .TP
 .B \-S
 Enable Javascript
+.TP
+.B \-t stylefile
+Specify the user
+.I stylefile.
+This does disable the site-specific styles.
 .TP
 .B \-u useragent 
 Specify the
@@ -203,6 +220,58 @@ page.
 .TP
 .B F11
 Toggle fullscreen mode.
+.SH INDICATORS OF OPERATION
+Surf is showing indicators of operation in front of the site title.
+For all indicators, unless otherwsie specified, a lower case letter means disabled and an upper case letter means enabled.
+.TP
+.B A
+all cookies accepted
+.TP
+.B a
+no cookies accepted
+.TP
+.B @
+all except third-party cookies accepted
+.TP
+.B c C
+caret browsing
+.TP
+.B g G
+geolocation
+.TP
+.B d D
+disk cache
+.TP
+.B i I
+images
+.TP
+.B s S
+scripts
+.TP
+.B v V
+plugins
+.TP
+.B m M
+styles
+.SH INDICATORS OF WEB PAGE
+The second part of the indicators specifies modes of the web page itself.
+.SS First character: encryption
+.TP
+.B -
+unencrypted
+.TP
+.B T
+encrypted (SSL)
+.TP
+.B U
+attempted encryption but failed
+.SS Second character: proxying
+.TP
+.B -
+no proxy
+.TP
+.B P
+using proxy
 .SH ENVIRONMENT
 .B SURF_USERAGENT
 If this variable is set upon startup, surf will use it as the

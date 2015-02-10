@@ -35,6 +35,15 @@ char *argv0;
 #define COOKIEJAR(obj)          (G_TYPE_CHECK_INSTANCE_CAST ((obj), COOKIEJAR_TYPE, CookieJar))
 
 enum { AtomFind, AtomGo, AtomUri, AtomLast };
+enum {
+	ClkDoc   = WEBKIT_HIT_TEST_RESULT_CONTEXT_DOCUMENT,
+	ClkLink  = WEBKIT_HIT_TEST_RESULT_CONTEXT_LINK,
+	ClkImg   = WEBKIT_HIT_TEST_RESULT_CONTEXT_IMAGE,
+	ClkMedia = WEBKIT_HIT_TEST_RESULT_CONTEXT_MEDIA,
+	ClkSel   = WEBKIT_HIT_TEST_RESULT_CONTEXT_SELECTION,
+	ClkEdit  = WEBKIT_HIT_TEST_RESULT_CONTEXT_EDITABLE,
+	ClkAny   = ClkDoc | ClkLink | ClkImg | ClkMedia | ClkSel | ClkEdit,
+};
 
 typedef union Arg Arg;
 union Arg {
@@ -62,6 +71,14 @@ typedef struct {
 } Key;
 
 typedef struct {
+	unsigned int click;
+	unsigned int mask;
+	guint button;
+	void (*func)(Client *c, const Arg *arg);
+	const Arg arg;
+} Button;
+
+typedef struct {
 	SoupCookieJarText parent_instance;
 	int lock;
 } CookieJar;
@@ -81,7 +98,7 @@ typedef struct {
 	char *regex;
 	char *style;
 	regex_t re;
-} SiteSpecificStyle;
+} SiteStyle;
 
 static Display *dpy;
 static Atom atoms[AtomLast];
@@ -90,18 +107,19 @@ static GdkNativeWindow embed = 0;
 static gboolean showxid = FALSE;
 static char winid[64];
 static gboolean usingproxy = 0;
-static char togglestat[8];
+static char togglestat[9];
 static char pagestat[3];
 static GTlsDatabase *tlsdb;
 static int policysel = 0;
+static char *stylefile = NULL;
+static SoupCache *diskcache = NULL;
 
 static void addaccelgroup(Client *c);
 static void beforerequest(WebKitWebView *w, WebKitWebFrame *f,
 		WebKitWebResource *r, WebKitNetworkRequest *req,
-		WebKitNetworkResponse *resp, gpointer d);
+		WebKitNetworkResponse *resp, Client *c);
 static char *buildpath(const char *path);
-static gboolean buttonrelease(WebKitWebView *web, GdkEventButton *e,
-		GList *gl);
+static gboolean buttonrelease(WebKitWebView *web, GdkEventButton *e, Client *c);
 static void cleanup(void);
 static void clipboard(Client *c, const Arg *arg);
 
@@ -141,6 +159,8 @@ static void getpagestat(Client *c);
 static char *geturi(Client *c);
 static gchar *getstyle(const char *uri);
 
+static void handleplumb(Client *c, WebKitWebView *w, const gchar *uri);
+
 static gboolean initdownload(WebKitWebView *v, WebKitDownload *o, Client *c);
 
 static void inspector(Client *c, const Arg *arg);
@@ -170,6 +190,8 @@ static void print(Client *c, const Arg *arg);
 static GdkFilterReturn processx(GdkXEvent *xevent, GdkEvent *event,
 		gpointer d);
 static void progresschange(WebKitWebView *view, GParamSpec *pspec, Client *c);
+static void linkopen(Client *c, const Arg *arg);
+static void linkopenembed(Client *c, const Arg *arg);
 static void reload(Client *c, const Arg *arg);
 static void scroll_h(Client *c, const Arg *arg);
 static void scroll_v(Client *c, const Arg *arg);
@@ -181,6 +203,7 @@ static void source(Client *c, const Arg *arg);
 static void spawn(Client *c, const Arg *arg);
 static void stop(Client *c, const Arg *arg);
 static void titlechange(WebKitWebView *view, GParamSpec *pspec, Client *c);
+static void titlechangeleave(void *a, void *b, Client *c);
 static void toggle(Client *c, const Arg *arg);
 static void togglecookiepolicy(Client *c, const Arg *arg);
 static void togglegeolocation(Client *c, const Arg *arg);
@@ -213,11 +236,30 @@ addaccelgroup(Client *c) {
 static void
 beforerequest(WebKitWebView *w, WebKitWebFrame *f, WebKitWebResource *r,
 		WebKitNetworkRequest *req, WebKitNetworkResponse *resp,
-		gpointer d) {
+		Client *c) {
 	const gchar *uri = webkit_network_request_get_uri(req);
+	int i, isascii = 1;
 
 	if(g_str_has_suffix(uri, "/favicon.ico"))
 		webkit_network_request_set_uri(req, "about:blank");
+
+	if(!g_str_has_prefix(uri, "http://") \
+			&& !g_str_has_prefix(uri, "https://") \
+			&& !g_str_has_prefix(uri, "about:") \
+			&& !g_str_has_prefix(uri, "file://") \
+			&& !g_str_has_prefix(uri, "data:") \
+			&& !g_str_has_prefix(uri, "blob:") \
+			&& strlen(uri) > 0) {
+
+		for(i = 0; i < strlen(uri); i++) {
+			if(!g_ascii_isprint(uri[i])) {
+				isascii = 0;
+				break;
+			}
+		}
+		if(isascii)
+			handleplumb(c, w, uri);
+	}
 }
 
 static char *
@@ -255,18 +297,19 @@ buildpath(const char *path) {
 }
 
 static gboolean
-buttonrelease(WebKitWebView *web, GdkEventButton *e, GList *gl) {
+buttonrelease(WebKitWebView *web, GdkEventButton *e, Client *c) {
 	WebKitHitTestResultContext context;
 	WebKitHitTestResult *result = webkit_web_view_get_hit_test_result(web,
 			e);
 	Arg arg;
+	unsigned int i;
 
 	g_object_get(result, "context", &context, NULL);
-	if(context & WEBKIT_HIT_TEST_RESULT_CONTEXT_LINK) {
-		if(e->button == 2 ||
-				(e->button == 1 && CLEANMASK(e->state) == CLEANMASK(MODKEY))) {
-			g_object_get(result, "link-uri", &arg.v, NULL);
-			newwindow(NULL, &arg, 0);
+	g_object_get(result, "link-uri", &arg.v, NULL);
+	for(i = 0; i < LENGTH(buttons); i++) {
+		if(context & buttons[i].click && e->button == buttons[i].button &&
+		CLEANMASK(e->state) == CLEANMASK(buttons[i].mask) && buttons[i].func) {
+			buttons[i].func(c, buttons[i].click == ClkLink && buttons[i].arg.i == 0 ? &arg : &buttons[i].arg);
 			return true;
 		}
 	}
@@ -275,6 +318,10 @@ buttonrelease(WebKitWebView *web, GdkEventButton *e, GList *gl) {
 
 static void
 cleanup(void) {
+	if(diskcache) {
+		soup_cache_flush(diskcache);
+		soup_cache_dump(diskcache);
+	}
 	while(clients)
 		destroyclient(clients);
 	g_free(cookiefile);
@@ -551,10 +598,26 @@ geturi(Client *c) {
 static gchar *
 getstyle(const char *uri) {
 	int i;
-	for(i = 0; i < LENGTH(styles); i++)
-		if(styles[i].regex && !regexec(&(styles[i].re), uri, 0, NULL, 0))
+
+	if(stylefile != NULL)
+		return g_strconcat("file://", stylefile, NULL);
+
+	for(i = 0; i < LENGTH(styles); i++) {
+		if(styles[i].regex && !regexec(&(styles[i].re), uri, 0,
+					NULL, 0)) {
 			return g_strconcat("file://", styles[i].style, NULL);
+		}
+	}
 	return g_strdup("");
+}
+
+static void
+handleplumb(Client *c, WebKitWebView *w, const gchar *uri) {
+	Arg arg;
+
+	webkit_web_view_stop_loading(w);
+	arg = (Arg)PLUMB((char *)uri);
+	spawn(c, &arg);
 }
 
 static gboolean
@@ -676,13 +739,19 @@ loadstatuschange(WebKitWebView *view, GParamSpec *pspec, Client *c) {
 			fputs("\n", f);
 			fclose(f);
 		}
-		g_object_get(G_OBJECT(set), "user-stylesheet-uri", &path, NULL);
-		if(path && path[0])
-			g_object_set(G_OBJECT(set), "user-stylesheet-uri", getstyle(uri), NULL);
+
+		if(enablestyles) {
+			g_object_set(G_OBJECT(set), "user-stylesheet-uri",
+					getstyle(uri), NULL);
+		}
 		break;
 	case WEBKIT_LOAD_FINISHED:
 		c->progress = 100;
 		updatetitle(c);
+		if(diskcache) {
+			soup_cache_flush(diskcache);
+			soup_cache_dump(diskcache);
+		}
 		break;
 	default:
 		break;
@@ -775,6 +844,9 @@ newclient(void) {
 	g_signal_connect(G_OBJECT(c->win),
 			"destroy",
 			G_CALLBACK(destroywin), c);
+	g_signal_connect(G_OBJECT(c->win),
+			"leave_notify_event",
+			G_CALLBACK(titlechangeleave), c);
 
 	if(!kioskmode)
 		addaccelgroup(c);
@@ -873,6 +945,10 @@ newclient(void) {
 	if(!(ua = getenv("SURF_USERAGENT")))
 		ua = useragent;
 	g_object_set(G_OBJECT(settings), "user-agent", ua, NULL);
+	if (enablestyles) {
+		g_object_set(G_OBJECT(settings), "user-stylesheet-uri",
+					 getstyle("about:blank"), NULL);
+	}
 	g_object_set(G_OBJECT(settings), "auto-load-images", loadimages,
 			NULL);
 	g_object_set(G_OBJECT(settings), "enable-plugins", enableplugins,
@@ -951,7 +1027,7 @@ newclient(void) {
 static void
 newwindow(Client *c, const Arg *arg, gboolean noembed) {
 	guint i = 0;
-	const char *cmd[16], *uri;
+	const char *cmd[18], *uri;
 	const Arg a = { .v = (void *)cmd };
 	char tmp[64];
 
@@ -962,9 +1038,11 @@ newwindow(Client *c, const Arg *arg, gboolean noembed) {
 		cmd[i++] = "-b";
 	if(embed && !noembed) {
 		cmd[i++] = "-e";
-		snprintf(tmp, LENGTH(tmp), "%u\n", (int)embed);
+		snprintf(tmp, LENGTH(tmp), "%u", (int)embed);
 		cmd[i++] = tmp;
 	}
+	if(!allowgeolocation)
+		cmd[i++] = "-g";
 	if(!loadimages)
 		cmd[i++] = "-i";
 	if(kioskmode)
@@ -975,6 +1053,8 @@ newwindow(Client *c, const Arg *arg, gboolean noembed) {
 		cmd[i++] = "-s";
 	if(showxid)
 		cmd[i++] = "-x";
+	if(enablediskcache)
+		cmd[i++] = "-D";
 	cmd[i++] = "-c";
 	cmd[i++] = cookiefile;
 	cmd[i++] = "--";
@@ -1094,6 +1174,16 @@ progresschange(WebKitWebView *view, GParamSpec *pspec, Client *c) {
 }
 
 static void
+linkopen(Client *c, const Arg *arg) {
+	newwindow(NULL, arg, 1);
+}
+
+static void
+linkopenembed(Client *c, const Arg *arg) {
+	newwindow(NULL, arg, 0);
+}
+
+static void
 reload(Client *c, const Arg *arg) {
 	gboolean nocache = *(gboolean *)arg;
 	if(nocache) {
@@ -1170,14 +1260,23 @@ setup(void) {
 	cookiefile = buildpath(cookiefile);
 	historyfile = buildpath(historyfile);
 	scriptfile = buildpath(scriptfile);
-
-	/* site specific stylesheet regexes */
-	for(i = 0; i < LENGTH(styles); i++) {
-		if(regcomp(&(styles[i].re), styles[i].regex, REG_EXTENDED)) {
-			fprintf(stderr, "Could not compile regex: %s\n", styles[i].regex);
-			styles[i].regex = NULL;
+	cachefolder = buildpath(cachefolder);
+	styledir = buildpath(styledir);
+	if(stylefile == NULL) {
+		for(i = 0; i < LENGTH(styles); i++) {
+			if(regcomp(&(styles[i].re), styles[i].regex,
+						REG_EXTENDED)) {
+				fprintf(stderr,
+					"Could not compile regex: %s\n",
+					styles[i].regex);
+				styles[i].regex = NULL;
+			}
+			styles[i].style = buildpath(
+					g_strconcat(styledir,
+						styles[i].style, NULL));
 		}
-		styles[i].style = buildpath(styles[i].style);
+	} else {
+		stylefile = buildpath(stylefile);
 	}
 
 	/* request handler */
@@ -1187,6 +1286,14 @@ setup(void) {
 	soup_session_add_feature(s,
 			SOUP_SESSION_FEATURE(cookiejar_new(cookiefile, FALSE,
 					cookiepolicy_get())));
+
+	/* disk cache */
+	if(enablediskcache) {
+		diskcache = soup_cache_new(cachefolder, SOUP_CACHE_SINGLE_USER);
+		soup_cache_set_max_size(diskcache, diskcachebytes);
+		soup_cache_load(diskcache);
+		soup_session_add_feature(s, SOUP_SESSION_FEATURE(diskcache));
+	}
 
 	/* ssl */
 	tlsdb = g_tls_file_database_new(cafile, &error);
@@ -1259,6 +1366,12 @@ titlechange(WebKitWebView *view, GParamSpec *pspec, Client *c) {
 		c->title = copystr(&c->title, t);
 		updatetitle(c);
 	}
+}
+
+static void
+titlechangeleave(void *a, void *b, Client *c) {
+	c->linkhover = NULL;
+	updatetitle(c);
 }
 
 static void
@@ -1347,11 +1460,11 @@ togglescrollbars(Client *c, const Arg *arg) {
 static void
 togglestyle(Client *c, const Arg *arg) {
 	WebKitWebSettings *settings = webkit_web_view_get_settings(c->view);
-	char *path;
+	char *uri;
 
-	g_object_get(G_OBJECT(settings), "user-stylesheet-uri", &path, NULL);
-	path = (path && path[0]) ? g_strdup("") : getstyle(geturi(c));
-	g_object_set(G_OBJECT(settings), "user-stylesheet-uri", path, NULL);
+	enablestyles = !enablestyles;
+	uri = enablestyles ? getstyle(geturi(c)) : g_strdup("");
+	g_object_set(G_OBJECT(settings), "user-stylesheet-uri", uri, NULL);
 
 	updatetitle(c);
 }
@@ -1359,7 +1472,6 @@ togglestyle(Client *c, const Arg *arg) {
 static void
 gettogglestat(Client *c){
 	gboolean value;
-	char *uri;
 	int p = 0;
 	WebKitWebSettings *settings = webkit_web_view_get_settings(c->view);
 
@@ -1371,6 +1483,8 @@ gettogglestat(Client *c){
 
 	togglestat[p++] = allowgeolocation? 'G': 'g';
 
+	togglestat[p++] = enablediskcache? 'D': 'd';
+
 	g_object_get(G_OBJECT(settings), "auto-load-images", &value, NULL);
 	togglestat[p++] = value? 'I': 'i';
 
@@ -1380,8 +1494,7 @@ gettogglestat(Client *c){
 	g_object_get(G_OBJECT(settings), "enable-plugins", &value, NULL);
 	togglestat[p++] = value? 'V': 'v';
 
-	g_object_get(G_OBJECT(settings), "user-stylesheet-uri", &uri, NULL);
-	togglestat[p++] = (uri && uri[0]) ? 'M': 'm';
+	togglestat[p++] = enablestyles ? 'M': 'm';
 
 	togglestat[p] = '\0';
 }
@@ -1487,6 +1600,12 @@ main(int argc, char *argv[]) {
 	case 'c':
 		cookiefile = EARGF(usage());
 		break;
+	case 'd':
+		enablediskcache = 0;
+		break;
+	case 'D':
+		enablediskcache = 1;
+		break;
 	case 'e':
 		embed = strtol(EARGF(usage()), NULL, 0);
 		break;
@@ -1513,6 +1632,12 @@ main(int argc, char *argv[]) {
 		break;
 	case 'K':
 		kioskmode = 1;
+		break;
+	case 'm':
+		enablestyles = 0;
+		break;
+	case 'M':
+		enablestyles = 1;
 		break;
 	case 'n':
 		enableinspector = 0;
