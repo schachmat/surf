@@ -86,13 +86,6 @@ static SearchEngine searchengines[] = {
 	{ "dict",     "http://www.thefreedictionary.com/%s" },
 };
 
-#define STYLEDIR "~/.surf/styles/"
-static SiteSpecificStyle styles[] = {
-	{ "^https?://[a-z]+\\.wikipedia\\.org", STYLEDIR "wiki.css" },
-	{ "^https?://startpage\\.com",          STYLEDIR "startpage.css" },
-	{ ".*",                                 STYLEDIR "default.css" },
-};
-
 /* hotkeys */
 /*
  * If you use anything else but MODKEY and GDK_SHIFT_MASK, don't forget to

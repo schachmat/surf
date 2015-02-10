@@ -719,7 +719,6 @@ loadstatuschange(WebKitWebView *view, GParamSpec *pspec, Client *c) {
 	WebKitWebSettings *set = webkit_web_view_get_settings(c->view);
 	SoupMessage *msg;
 	char *uri;
-	char *path;
 	FILE *f;
 
 	switch(webkit_web_view_get_load_status (c->view)) {
