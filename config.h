@@ -101,9 +101,10 @@ static SiteStyle styles[] = {
 
 // searchengines
 static SearchEngine searchengines[] = {
-	{ "s",        "https://startpage.com/do/search?q=%s"   },
+	{ "s",        "https://startpage.com/do/search?q=%s" },
 	{ "l",        "https://dict.leo.org/#/search=%s" },
 	{ "w",        "https://en.wikipedia.org/wiki/%s" },
+	{ "man",      "http://localhost:8626/%s" },
 };
 
 /* hotkeys */
