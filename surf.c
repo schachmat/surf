@@ -36,7 +36,7 @@ char *argv0;
 #define COOKIEJAR_TYPE          (cookiejar_get_type ())
 #define COOKIEJAR(obj)          (G_TYPE_CHECK_INSTANCE_CAST ((obj), COOKIEJAR_TYPE, CookieJar))
 
-enum { AtomFind, AtomGo, AtomUri, AtomLast };
+enum { AtomFind, AtomGo, AtomUri, AtomHist, AtomNav, AtomLast };
 enum {
 	ClkDoc   = WEBKIT_HIT_TEST_RESULT_CONTEXT_DOCUMENT,
 	ClkLink  = WEBKIT_HIT_TEST_RESULT_CONTEXT_LINK,
@@ -182,6 +182,8 @@ static void loadstatuschange(WebKitWebView *view, GParamSpec *pspec,
 		Client *c);
 static void loaduri(Client *c, const Arg *arg);
 static void navigate(Client *c, const Arg *arg);
+static void selhist(Client *c, const Arg *arg);
+static void navhist(Client *c, const Arg *arg);
 static Client *newclient(void);
 static void newwindow(Client *c, const Arg *arg, gboolean noembed);
 static gchar *parseuri(const gchar *uri);
@@ -831,6 +833,59 @@ navigate(Client *c, const Arg *arg) {
 	webkit_web_view_go_back_or_forward(c->view, steps);
 }
 
+static void
+selhist(Client *c, const Arg *arg) {
+	WebKitWebBackForwardList *lst;
+	WebKitWebHistoryItem *cur;
+	gint i;
+	gchar *out;
+	gchar *tmp;
+	gchar *line;
+
+	out = g_strdup("");
+
+	if(!(lst = webkit_web_view_get_back_forward_list(c->view)))
+		return;
+
+	for(i = webkit_web_back_forward_list_get_back_length(lst); i > 0; i--) {
+		if(!(cur = webkit_web_back_forward_list_get_nth_item(lst, -i)))
+			break;
+		line = g_strdup_printf("%d: %s\n", -i,
+		                       webkit_web_history_item_get_original_uri(cur));
+		tmp = g_strconcat(out, line, NULL);
+		g_free(out);
+		out = tmp;
+	}
+
+	if((cur = webkit_web_back_forward_list_get_nth_item(lst, 0))) {
+		line = g_strdup_printf("%d: %s", 0,
+		                       webkit_web_history_item_get_original_uri(cur));
+		tmp = g_strconcat(out, line, NULL);
+		g_free(out);
+		out = tmp;
+	}
+
+	for(i = 1; i <= webkit_web_back_forward_list_get_forward_length(lst); i++) {
+		if(!(cur = webkit_web_back_forward_list_get_nth_item(lst, i)))
+			break;
+		line = g_strdup_printf("\n%d: %s", i,
+		                       webkit_web_history_item_get_original_uri(cur));
+		tmp = g_strconcat(out, line, NULL);
+		g_free(out);
+		out = tmp;
+	}
+
+	setatom(c, AtomHist, out);
+	g_free(out);
+	spawn(c, arg);
+}
+
+static void
+navhist(Client *c, const Arg *arg) {
+	Arg a = { .i = atoi(arg->v) };
+	navigate(c, &a);
+}
+
 static Client *
 newclient(void) {
 	Client *c;
@@ -1032,6 +1087,7 @@ newclient(void) {
 
 	setatom(c, AtomFind, "");
 	setatom(c, AtomUri, "about:blank");
+	setatom(c, AtomHist, "");
 	if(hidebackground)
 		webkit_web_view_set_transparent(c->view, TRUE);
 
@@ -1188,6 +1244,9 @@ processx(GdkXEvent *e, GdkEvent *event, gpointer d) {
 				loaduri(c, &arg);
 
 				return GDK_FILTER_REMOVE;
+			} else if(ev->atom == atoms[AtomNav]) {
+				arg.v = getatom(c, AtomNav);
+				navhist(c, &arg);
 			}
 		}
 	}
@@ -1282,6 +1341,8 @@ setup(void) {
 	atoms[AtomFind] = XInternAtom(dpy, "_SURF_FIND", False);
 	atoms[AtomGo] = XInternAtom(dpy, "_SURF_GO", False);
 	atoms[AtomUri] = XInternAtom(dpy, "_SURF_URI", False);
+	atoms[AtomHist] = XInternAtom(dpy, "_SURF_HIST", False);
+	atoms[AtomNav] = XInternAtom(dpy, "_SURF_NAV", False);
 
 	/* dirs and files */
 	cookiefile = buildfile(cookiefile);
