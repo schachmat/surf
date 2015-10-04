@@ -11,7 +11,6 @@ static Bool showindicators  = TRUE;  /* Show indicators in window title */
 static Bool zoomto96dpi     = TRUE;  /* Zoom pages to always emulate 96dpi */
 static Bool runinfullscreen = FALSE; /* Run in fullscreen mode by default */
 /* Refuse untrusted SSL connections */
-#define STRICTSSL FALSE
 #define HOMEPAGE "https://startpage.com/"
 
 static guint defaultfontsize = 12;   /* Default font size */
@@ -22,6 +21,7 @@ static char *cookiefile     = "~/.surf/cookies.txt";
 static char *cookiepolicies = "Aa@"; /* A: accept all; a: accept nothing,
                                         @: accept no third party */
 static char *cafile         = "/etc/ssl/certs/ca-certificates.crt";
+static Bool strictssl       = FALSE; /* Refuse untrusted SSL connections */
 static time_t sessiontime   = 3600;
 
 /* Webkit default features */
