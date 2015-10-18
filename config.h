@@ -40,7 +40,7 @@ static Bool allowgeolocation      = TRUE;
 #define SETURI { \
 	.v = (char *[]){ "/bin/sh", "-c", \
 		"prop=\"`xprop -id $0 _SURF_URI" \
-		" | cut -d '\"' -f 2" \
+		" | sed \"s/^_SURF_URI(STRING) = \\(\\\\\"\\?\\)\\(.*\\)\\1$/\\2/\" " \
 		" | tac - \"${HOME}/.surf/history\"" \
 		" | awk '!x[$0]++'" \
 		" | dmenu -i -l 10`\"" \
@@ -52,13 +52,23 @@ static Bool allowgeolocation      = TRUE;
 #define SETSEARCH { \
 	.v = (char *[]){ "/bin/sh", "-c", \
 		"prop=\"`xprop -id $0 _SURF_FIND" \
-		" | cut -d '\"' -f 2" \
+		" | sed \"s/^_SURF_FIND(STRING) = \\(\\\\\"\\?\\)\\(.*\\)\\1$/\\2/\" " \
 		" | tac - \"${HOME}/.surf/searches\"" \
 		" | awk '!x[$0]++'" \
 		" | xargs -0 printf %b" \
 		" | dmenu -i -l 10`\"" \
 		" && xprop -id $0 -f _SURF_FIND 8s -set _SURF_FIND \"$prop\"" \
 		" && echo \"$prop\" >> \"${HOME}/.surf/searches\"", \
+		winid, NULL \
+	} \
+}
+
+#define SELNAV { \
+	.v = (char *[]){ "/bin/sh", "-c", \
+		"prop=\"`xprop -id $0 _SURF_HIST" \
+		" | sed -e 's/^.[^\"]*\"//' -e 's/\"$//' -e 's/\\\\\\n/\\n/g'" \
+		" | dmenu -i -l 10`\"" \
+		" && xprop -id $0 -f _SURF_NAV 8s -set _SURF_NAV \"$prop\"", \
 		winid, NULL \
 	} \
 }
@@ -130,7 +140,7 @@ static Key keys[] = {
 	{ MODKEY,               GDK_l,      navigate,   { .i = +1 } },
 	{ MODKEY,               GDK_h,      navigate,   { .i = -1 } },
 	
-	{ MODKEY,               GDK_j,      scroll_v,   { .i = +1 } },
+	{ MODKEY,               GDK_j,      selhist,    SELNAV },
 	{ MODKEY,               GDK_k,      scroll_v,   { .i = -1 } },
 	{ MODKEY,               GDK_b,      scroll_v,   { .i = -10000 } },
 	{ MODKEY,               GDK_space,  scroll_v,   { .i = +10000 } },
