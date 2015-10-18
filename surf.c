@@ -24,6 +24,8 @@
 #include <libgen.h>
 #include <stdarg.h>
 #include <regex.h>
+#include <pwd.h>
+#include <string.h>
 
 #include "arg.h"
 
@@ -34,7 +36,7 @@ char *argv0;
 #define COOKIEJAR_TYPE          (cookiejar_get_type ())
 #define COOKIEJAR(obj)          (G_TYPE_CHECK_INSTANCE_CAST ((obj), COOKIEJAR_TYPE, CookieJar))
 
-enum { AtomFind, AtomGo, AtomUri, AtomLast };
+enum { AtomFind, AtomGo, AtomUri, AtomHist, AtomNav, AtomLast };
 enum {
 	ClkDoc   = WEBKIT_HIT_TEST_RESULT_CONTEXT_DOCUMENT,
 	ClkLink  = WEBKIT_HIT_TEST_RESULT_CONTEXT_LINK,
@@ -118,6 +120,7 @@ static void addaccelgroup(Client *c);
 static void beforerequest(WebKitWebView *w, WebKitWebFrame *f,
 		WebKitWebResource *r, WebKitNetworkRequest *req,
 		WebKitNetworkResponse *resp, Client *c);
+static char *buildfile(const char *path);
 static char *buildpath(const char *path);
 static gboolean buttonrelease(WebKitWebView *web, GdkEventButton *e, Client *c);
 static void cleanup(void);
@@ -179,6 +182,8 @@ static void loadstatuschange(WebKitWebView *view, GParamSpec *pspec,
 		Client *c);
 static void loaduri(Client *c, const Arg *arg);
 static void navigate(Client *c, const Arg *arg);
+static void selhist(Client *c, const Arg *arg);
+static void navhist(Client *c, const Arg *arg);
 static Client *newclient(void);
 static void newwindow(Client *c, const Arg *arg, gboolean noembed);
 static gchar *parseuri(const gchar *uri);
@@ -263,37 +268,62 @@ beforerequest(WebKitWebView *w, WebKitWebFrame *f, WebKitWebResource *r,
 }
 
 static char *
-buildpath(const char *path) {
-	char *apath, *p;
+buildfile(const char *path) {
+	char *dname, *bname, *bpath, *fpath;
 	FILE *f;
 
-	/* creating directory */
-	if(path[0] == '/') {
-		apath = g_strdup(path);
-	} else if(path[0] == '~') {
-		if(path[1] == '/') {
-			apath = g_strconcat(g_get_home_dir(), &path[1], NULL);
+	dname = g_path_get_dirname(path);
+	bname = g_path_get_basename(path);
+
+	bpath = buildpath(dname);
+	g_free(dname);
+
+	fpath = g_build_filename(bpath, bname, NULL);
+	g_free(bname);
+
+	if(!(f = fopen(fpath, "a")))
+		die("Could not open file: %s\n", fpath);
+
+	g_chmod(fpath, 0600); /* always */
+	fclose(f);
+
+	return fpath;
+}
+
+static char *
+buildpath(const char *path) {
+	struct passwd *pw;
+	char *apath, *name, *p, *fpath;
+
+	if(path[0] == '~') {
+		if(path[1] == '/' || path[1] == '\0') {
+			p = (char *)&path[1];
+			pw = getpwuid(getuid());
 		} else {
-			apath = g_strconcat(g_get_home_dir(), "/",
-					&path[1], NULL);
+			if((p = strchr(path, '/')))
+				name = g_strndup(&path[1], --p - path);
+			else
+				name = g_strdup(&path[1]);
+
+			if(!(pw = getpwnam(name))) {
+				die("Can't get user %s home directory: %s.\n",
+						name, path);
+			}
+			g_free(name);
 		}
+		apath = g_build_filename(pw->pw_dir, p, NULL);
 	} else {
-		apath = g_strconcat(g_get_current_dir(), "/", path, NULL);
+		apath = g_strdup(path);
 	}
 
-	if((p = strrchr(apath, '/'))) {
-		*p = '\0';
-		g_mkdir_with_parents(apath, 0700);
-		g_chmod(apath, 0700); /* in case it existed */
-		*p = '/';
-	}
-	/* creating file (gives error when apath ends with "/") */
-	if((f = fopen(apath, "a"))) {
-		g_chmod(apath, 0600); /* always */
-		fclose(f);
-	}
+	/* creating directory */
+	if(g_mkdir_with_parents(apath, 0700) < 0)
+		die("Could not access directory: %s\n", apath);
 
-	return apath;
+	fpath = realpath(apath, NULL);
+	g_free(apath);
+
+	return fpath;
 }
 
 static gboolean
@@ -809,6 +839,59 @@ navigate(Client *c, const Arg *arg) {
 	webkit_web_view_go_back_or_forward(c->view, steps);
 }
 
+static void
+selhist(Client *c, const Arg *arg) {
+	WebKitWebBackForwardList *lst;
+	WebKitWebHistoryItem *cur;
+	gint i;
+	gchar *out;
+	gchar *tmp;
+	gchar *line;
+
+	out = g_strdup("");
+
+	if(!(lst = webkit_web_view_get_back_forward_list(c->view)))
+		return;
+
+	for(i = webkit_web_back_forward_list_get_back_length(lst); i > 0; i--) {
+		if(!(cur = webkit_web_back_forward_list_get_nth_item(lst, -i)))
+			break;
+		line = g_strdup_printf("%d: %s\n", -i,
+		                       webkit_web_history_item_get_original_uri(cur));
+		tmp = g_strconcat(out, line, NULL);
+		g_free(out);
+		out = tmp;
+	}
+
+	if((cur = webkit_web_back_forward_list_get_nth_item(lst, 0))) {
+		line = g_strdup_printf("%d: %s", 0,
+		                       webkit_web_history_item_get_original_uri(cur));
+		tmp = g_strconcat(out, line, NULL);
+		g_free(out);
+		out = tmp;
+	}
+
+	for(i = 1; i <= webkit_web_back_forward_list_get_forward_length(lst); i++) {
+		if(!(cur = webkit_web_back_forward_list_get_nth_item(lst, i)))
+			break;
+		line = g_strdup_printf("\n%d: %s", i,
+		                       webkit_web_history_item_get_original_uri(cur));
+		tmp = g_strconcat(out, line, NULL);
+		g_free(out);
+		out = tmp;
+	}
+
+	setatom(c, AtomHist, out);
+	g_free(out);
+	spawn(c, arg);
+}
+
+static void
+navhist(Client *c, const Arg *arg) {
+	Arg a = { .i = atoi(arg->v) };
+	navigate(c, &a);
+}
+
 static Client *
 newclient(void) {
 	Client *c;
@@ -1010,6 +1093,7 @@ newclient(void) {
 
 	setatom(c, AtomFind, "");
 	setatom(c, AtomUri, "about:blank");
+	setatom(c, AtomHist, "");
 	if(hidebackground)
 		webkit_web_view_set_transparent(c->view, TRUE);
 
@@ -1166,6 +1250,9 @@ processx(GdkXEvent *e, GdkEvent *event, gpointer d) {
 				loaduri(c, &arg);
 
 				return GDK_FILTER_REMOVE;
+			} else if(ev->atom == atoms[AtomNav]) {
+				arg.v = getatom(c, AtomNav);
+				navhist(c, &arg);
 			}
 		}
 	}
@@ -1260,11 +1347,13 @@ setup(void) {
 	atoms[AtomFind] = XInternAtom(dpy, "_SURF_FIND", False);
 	atoms[AtomGo] = XInternAtom(dpy, "_SURF_GO", False);
 	atoms[AtomUri] = XInternAtom(dpy, "_SURF_URI", False);
+	atoms[AtomHist] = XInternAtom(dpy, "_SURF_HIST", False);
+	atoms[AtomNav] = XInternAtom(dpy, "_SURF_NAV", False);
 
 	/* dirs and files */
-	cookiefile = buildpath(cookiefile);
-	historyfile = buildpath(historyfile);
-	scriptfile = buildpath(scriptfile);
+	cookiefile = buildfile(cookiefile);
+	historyfile = buildfile(historyfile);
+	scriptfile = buildfile(scriptfile);
 	cachefolder = buildpath(cachefolder);
 	styledir = buildpath(styledir);
 	if(stylefile == NULL) {
@@ -1276,12 +1365,12 @@ setup(void) {
 					styles[i].regex);
 				styles[i].regex = NULL;
 			}
-			styles[i].style = buildpath(
+			styles[i].style = buildfile(
 					g_strconcat(styledir,
 						styles[i].style, NULL));
 		}
 	} else {
-		stylefile = buildpath(stylefile);
+		stylefile = buildfile(stylefile);
 	}
 
 	/* request handler */

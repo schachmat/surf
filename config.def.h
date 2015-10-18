@@ -40,9 +40,21 @@ static Bool allowgeolocation      = TRUE;
 
 #define SETPROP(p, q) { \
 	.v = (char *[]){ "/bin/sh", "-c", \
-		"prop=\"`xprop -id $2 $0 | cut -d '\"' -f 2 | xargs -0 printf %b | dmenu`\" &&" \
+		"prop=\"`xprop -id $2 $0 " \
+		"| sed \"s/^$0(STRING) = \\(\\\\\"\\?\\)\\(.*\\)\\1$/\\2/\" " \
+		"| xargs -0 printf %b | dmenu`\" &&" \
 		"xprop -id $2 -f $1 8s -set $1 \"$prop\"", \
 		p, q, winid, NULL \
+	} \
+}
+
+#define SELNAV { \
+	.v = (char *[]){ "/bin/sh", "-c", \
+		"prop=\"`xprop -id $0 _SURF_HIST" \
+		" | sed -e 's/^.[^\"]*\"//' -e 's/\"$//' -e 's/\\\\\\n/\\n/g'" \
+		" | dmenu -i -l 10`\"" \
+		" && xprop -id $0 -f _SURF_NAV 8s -set _SURF_NAV \"$prop\"", \
+		winid, NULL \
 	} \
 }
 
@@ -108,6 +120,7 @@ static Key keys[] = {
 
     { MODKEY,               GDK_l,      navigate,   { .i = +1 } },
     { MODKEY,               GDK_h,      navigate,   { .i = -1 } },
+    { MODKEY|GDK_SHIFT_MASK,GDK_h,      selhist,    SELNAV },
 
     { MODKEY,               GDK_j,      scroll_v,   { .i = +1 } },
     { MODKEY,               GDK_k,      scroll_v,   { .i = -1 } },
