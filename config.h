@@ -34,7 +34,7 @@ static Bool enablescripts         = TRUE;
 static Bool enableinspector       = TRUE;
 static Bool enablestyles          = TRUE;
 static Bool loadimages            = TRUE;
-static Bool hidebackground        = FALSE;
+static Bool hidebackground        = TRUE;
 static Bool allowgeolocation      = TRUE;
 
 #define SETURI { \
