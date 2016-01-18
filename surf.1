@@ -50,10 +50,10 @@ Reparents to window specified by
 .I xid.
 .TP
 .B \-f
-Run surf in fullscreen mode.
+Start surf in windowed mode (not fullscreen).
 .TP
 .B \-F
-Disable to run in fullscreen by default.
+Start surf in fullscreen mode.
 .TP
 .B \-g
 Disable giving the geolocation to websites.
@@ -74,10 +74,10 @@ Disable kiosk mode (disable key strokes and right click)
 Enable kiosk mode (disable key strokes and right click)
 .TP
 .B \-m
-Disable the site-specific styles.
+Disable application of user style sheets.
 .TP
 .B \-M
-Enable the site-specific styles.
+Enable application of user style sheets.
 .TP
 .B \-n
 Disable the Web Inspector (Developer Tools).
@@ -222,7 +222,7 @@ page.
 Toggle fullscreen mode.
 .SH INDICATORS OF OPERATION
 Surf is showing indicators of operation in front of the site title.
-For all indicators, unless otherwsie specified, a lower case letter means disabled and an upper case letter means enabled.
+For all indicators, unless otherwise specified, a lower case letter means disabled and an upper case letter means enabled.
 .TP
 .B A
 all cookies accepted
@@ -280,6 +280,13 @@ string
 .TP
 .B http_proxy
 If this variable is set and not empty upon startup, surf will use it as the http proxy
+.TP
+.B no_proxy
+If both http_proxy is set and no_proxy contain a
+.BR comma-separated
+list of domain extensions and both is not empty upon startup, proxy will
+.BR not
+be used for each of the elements in no_proxy.
 .SH PLUGINS
 For using plugins in surf, first determine your running architecture. Then get
 the appropriate plugin for that architecture and copy it to
